@@ -13,7 +13,9 @@ dt-launchfile-init
 # NOTE: Use `dt-exec COMMAND` to run the main process (blocking process)
 
 # launching app
-dt-exec python3 -m "exercise1.color_detector"
+# roscore &
+# sleep 5
+dt-exec rosrun exercise_two image_subscriber.py
 
 # ----------------------------------------------------------------------------
 # YOUR CODE ABOVE THIS LINE
