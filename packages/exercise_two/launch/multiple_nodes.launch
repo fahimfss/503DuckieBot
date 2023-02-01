@@ -1,6 +1,6 @@
 <launch>
 
-  <node pkg="exercise_two" type="image_sub_pub.py" name="my_subscriber_publisher_node" output="screen"/>
-  <node pkg="exercise_two" type="image_subscriber.py" name="my_img_subscriber_node"  output="screen"/>
+  <node pkg="exercise_two" type="duckie_mover.py" name="my_mover_node" output="screen"/>
+  <!-- <node pkg="exercise_two" type="image_subscriber.py" name="my_img_subscriber_node"  output="screen"/> -->
 
 </launch>
