@@ -15,7 +15,9 @@ dt-launchfile-init
 # launching app
 # roscore &
 # sleep 5
-dt-exec rosrun exercise_two image_sub_pub.py
+# dt-exec rosrun exercise_two image_sub_pub.py
+
+roslaunch exercise_two multiple_nodes.launch
 
 # ----------------------------------------------------------------------------
 # YOUR CODE ABOVE THIS LINE

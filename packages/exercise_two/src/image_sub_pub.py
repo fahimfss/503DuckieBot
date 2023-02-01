@@ -17,7 +17,8 @@ class ImageSubscriberPublisherNode(DTROS):
         super(ImageSubscriberPublisherNode, self).__init__(node_name=node_name, node_type=NodeType.GENERIC)
         self.sub = rospy.Subscriber("/"+os.environ['VEHICLE_NAME']+"/camera_node/image/compressed", 
         CompressedImage, self.callback,  queue_size = 1)
-        self.pub = rospy.Publisher("/"+os.environ['VEHICLE_NAME']+"/my_published_image", CompressedImage)
+        self.pub = rospy.Publisher("/"+os.environ['VEHICLE_NAME']+"/my_published_image/compressed", CompressedImage,  
+        queue_size = 1)
         self.bridge = CvBridge()
         self.img_queue = deque(maxlen=1)
 
