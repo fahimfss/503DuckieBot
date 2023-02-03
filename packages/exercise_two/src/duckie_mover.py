@@ -11,42 +11,6 @@ from duckietown.dtros import DTROS, NodeType
 from duckietown_msgs.msg import WheelsCmdStamped, Twist2DStamped, WheelEncoderStamped
 
 
-
-# class DuckieMover(DTROS):
-#     def __init__(self, node_name):
-#         super(DuckieMover, self).__init__(node_name=node_name, node_type=NodeType.GENERIC)
-#         self.vel_pub = rospy.Publisher("/csc22933/wheels_driver_node/wheels_cmd", WheelsCmdStamped, queue_size = 1)
-#         self.stop_pub = rospy.Publisher("/csc22933/wheels_driver_node/emergency_stop", BoolStamped, queue_size = 1)
-
-
-#     def run(self):
-#         rate = rospy.Rate(10)
-#         wait_rate = rospy.Rate(20)
-
-#         while self.vel_pub.get_num_connections() < 1:
-#             wait_rate.sleep()
-#         while self.stop_pub.get_num_connections() < 1:
-#             wait_rate.sleep()
-
-#         rospy.loginfo("Start...")
-#         msg_velocity = WheelsCmdStamped()
-#         for i in range(100):
-#             msg_velocity.header.stamp = rospy.Time.now()
-#             msg_velocity.vel_left = 0.50  # https://github.com/duckietown/dt-car-interface/blob/daffy/packages/dagu_car/src/kinematics_node.py
-#             msg_velocity.vel_right = 0.50
-#             self.vel_pub.publish(msg_velocity)
-#             rospy.loginfo("Sending vel")
-#             rate.sleep()
-
-#         for i in range(10):
-#             msg_velocity.header.stamp = rospy.Time.now()
-#             msg_velocity.vel_left = 0  # https://github.com/duckietown/dt-car-interface/blob/daffy/packages/dagu_car/src/kinematics_node.py
-#             msg_velocity.vel_right = 0
-#             self.vel_pub.publish(msg_velocity)
-#             rospy.loginfo("Stopping..")
-#             rate.sleep()
-
-
 class DuckieMover(DTROS):
     def __init__(self, node_name):
         super(DuckieMover, self).__init__(node_name=node_name, node_type=NodeType.GENERIC)
@@ -59,8 +23,35 @@ class DuckieMover(DTROS):
         self.left_tick_sub = rospy.Subscriber("/"+os.environ['VEHICLE_NAME']+"/left_wheel_encoder_node/tick", 
         WheelEncoderStamped, self.left_tick,  queue_size = 1)
 
+        self.r = rospy.get_param("/"+os.environ['VEHICLE_NAME']+"/kinematics_node/radius", 100)
+        rospy.loginfo("Radius of wheel: " +  str(self.r))
+
+        self.reset()
+
+    def reset(self):
         self.rt_val = 0
+        self.rt_initial_val = 0
+        self.rt_dist = 0
+
         self.lt_val = 0
+        self.lt_initial_val = 0
+        self.lt_dist = 0
+
+    def go_straight_dist(self, vel, dist):
+        msg_velocity = Twist2DStamped()
+
+        rate = rospy.Rate(20)
+
+        dist_cover = 0
+
+        while dist_cover < dist:
+            msg_velocity.header.stamp = rospy.Time.now()
+            msg_velocity.v = vel
+            msg_velocity.omega = 0.05
+            rate.sleep()
+            dist_cover = (self.lt_dist + self.rt_dist)/2
+
+        rospy.loginfo("Distance covered: " + str(dist_cover))
 
 
     def go_straight(self, vel, duration):
@@ -69,9 +60,10 @@ class DuckieMover(DTROS):
         msg_velocity.v = vel
         msg_velocity.omega = 0.05
         self.vel_pub.publish(msg_velocity)
-        msg_txt = "Sending v: " + str(vel) + ", omega = 0"
-        rospy.loginfo(msg_txt)
+        dist_cover = (self.lt_dist + self.rt_dist)/2
+        rospy.loginfo("Sending v: " + str(vel) + ", omega = 0")
         time.sleep(duration)
+        rospy.loginfo("Distance covered: " + str(dist_cover))
 
     def stop(self, duration):
         msg_velocity = Twist2DStamped()
@@ -94,10 +86,19 @@ class DuckieMover(DTROS):
         time.sleep(duration)
 
     def right_tick(self, msg):
+        if self.rt_val == 0:
+            self.rt_initial_val = msg.data
         self.rt_val = msg.data
+        tick_diff = self.rt_val - self.rt_initial_val
+        self.rt_dist = (2 * pi * self.r * tick_diff) / 135
+
 
     def left_tick(self, msg):
+        if self.lt_val == 0:
+            self.lt_initial_val = msg.data
         self.lt_val = msg.data
+        tick_diff = self.lt_val - self.lt_initial_val
+        self.lt_dist = (2 * pi * self.r * tick_diff) / 135
         
 
     def run(self):
@@ -110,23 +111,12 @@ class DuckieMover(DTROS):
 
         rospy.loginfo("Start...")
 
-        rospy.loginfo("rt val: " + str(self.rt_val) + ",  lt val: " + str(self.lt_val))
-
-        self.go_straight(vel=0.5, duration=3)
-        self.stop(3)
-
-        rospy.loginfo("rt val: " + str(self.rt_val) + ",  lt val: " + str(self.lt_val))
+        self.go_straight_dist(0.5, 1.25)
+        self.reset()
+        self.go_straight_dist(-0.5, 1.25)
         
-        self.turn(pi, 1)
-        self.stop(3)
-
-        rospy.loginfo("rt val: " + str(self.rt_val) + ",  lt val: " + str(self.lt_val))
-
-        self.go_straight(vel=0.5, duration=3)
-        self.stop(2)
-
-        rospy.loginfo("rt val: " + str(self.rt_val) + ",  lt val: " + str(self.lt_val))       
-        
+        for i in range(10):
+            self.stop(0.1)
 
 if __name__ == '__main__':
     # create the node
