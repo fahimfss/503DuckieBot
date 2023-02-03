@@ -1,0 +1,1 @@
+rostopic pub /csc22933/wheels_driver_node/wheels_cmd duckietown_msgs/WheelsCmdStamped  "{vel_left: 0, vel_right: 0}"
