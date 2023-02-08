@@ -4,30 +4,38 @@ import os
 import time
 
 import rospy
+from std_msgs.msg import String, Int16
 
 from math import pi, cos, sin
 
 from duckietown.dtros import DTROS, NodeType
 from duckietown_msgs.msg import WheelsCmdStamped, Twist2DStamped, WheelEncoderStamped
+from duckietown_msgs.srv import GetVariable
+
+# from exercise_two.srv import Led, LedResponse
 
 
 class DuckieMover(DTROS):
     def __init__(self, node_name):
         super(DuckieMover, self).__init__(node_name=node_name, node_type=NodeType.GENERIC)
+
+        name = os.environ['VEHICLE_NAME']
         
-        self.stop_pub = rospy.Publisher("/"+os.environ['VEHICLE_NAME']+"/wheels_driver_node/wheels_cmd", WheelsCmdStamped, queue_size = 1)
+        self.stop_pub = rospy.Publisher(f'/{name}/wheels_driver_node/wheels_cmd', WheelsCmdStamped, queue_size = 1)
         self.vel_pub = rospy.Publisher("/"+os.environ['VEHICLE_NAME']+"/joy_mapper_node/car_cmd", Twist2DStamped, queue_size = 1)
 
-        self.right_tick_sub = rospy.Subscriber("/"+os.environ['VEHICLE_NAME']+"/right_wheel_encoder_node/tick", 
+        self.right_tick_sub = rospy.Subscriber(f'/{name}/right_wheel_encoder_node/tick', 
         WheelEncoderStamped, self.right_tick,  queue_size = 1)
-        self.left_tick_sub = rospy.Subscriber("/"+os.environ['VEHICLE_NAME']+"/left_wheel_encoder_node/tick", 
+        self.left_tick_sub = rospy.Subscriber(f'/{name}/left_wheel_encoder_node/tick', 
         WheelEncoderStamped, self.left_tick,  queue_size = 1)
 
-        self.r = rospy.get_param("/"+os.environ['VEHICLE_NAME']+"/kinematics_node/radius", 100)
+        self.r = rospy.get_param(f'/{name}/kinematics_node/radius', 100)
         rospy.loginfo("Radius of wheel: " +  str(self.r))
 
-        self.X = 0.32
-        self.Y = 0.32
+        self.Xw = 0.32
+        self.Yw = 0.32
+        self.Xr = 0
+        self.Yr = 0
         self.Th = 0
         self.L = 0.05
 
@@ -42,60 +50,6 @@ class DuckieMover(DTROS):
         self.lt = 0
         self.lt_initial_val = 0
 
-
-    # def go_straight_dist(self, vel, dist):
-    #     msg_velocity = Twist2DStamped()
-    #     rate = rospy.Rate(30)
-    #     dist_cover = 0
-
-    #     while dist_cover <  abs(dist):
-    #         msg_velocity.header.stamp = rospy.Time.now()
-    #         msg_velocity.v = vel
-    #         omega_offset = 0.5
-    #         if vel < 0:
-    #             omega_offset = 0.1
-
-    #         # if self.lt_initial_val != 0 and self.rt_initial_val != 0:
-    #         #     wheel_diff = self.lt_val - self.rt_val
-
-    #             # if wheel_diff > 0:
-    #             #     omega_offset = wheel_diff / 7500
-    #             # else:
-    #             #     omega_offset = -wheel_diff / 7500
-
-    #         msg_velocity.omega = omega_offset
-            
-    #         self.vel_pub.publish(msg_velocity)
-    #         rate.sleep()
-            
-
-    #         self.Th  = (self.rt_dist - self.lt_dist) / (2 * self.L)
-    #         self.X += (dist_cover * cos(self.Th)) 
-    #         self.Y = dist_cover * sin(self.Th)
-    #         rospy.loginfo(f'X: {self.X}, Y: {self.Y}, Th: {self.Th}, dist: {dist_cover}')
-
-    #     rospy.loginfo("Distance covered: " + str(dist_cover))
-
-
-    def stop(self, duration):
-        msg_velocity = Twist2DStamped()
-        msg_velocity.header.stamp = rospy.Time.now()
-        msg_velocity.v = 0
-        msg_velocity.omega = 0
-        self.vel_pub.publish(msg_velocity)
-        # msg_txt = "Sending v: 0, omega = 0"
-        # rospy.loginfo(msg_txt)
-        time.sleep(duration)
-
-    def turn(self, omega, duration):
-        msg_velocity = Twist2DStamped()
-        msg_velocity.header.stamp = rospy.Time.now()
-        msg_velocity.v = 0
-        msg_velocity.omega = omega
-        self.vel_pub.publish(msg_velocity)
-        msg_txt = "Sending v: 0, omega = " + str(omega)
-        rospy.loginfo(msg_txt)
-        time.sleep(duration)
 
     def right_tick(self, msg):
         if not self.rt_initial_set:
@@ -112,6 +66,132 @@ class DuckieMover(DTROS):
         self.lt = msg.data - self.lt_initial_val
         # self.lt_dist = (2 * pi * self.r * self.lt_val) / 135
 
+    def stop(self, duration):
+        msg_velocity = Twist2DStamped()
+        msg_velocity.header.stamp = rospy.Time.now()
+        msg_velocity.v = 0
+        msg_velocity.omega = 0
+        self.vel_pub.publish(msg_velocity)
+        # msg_txt = "Sending v: 0, omega = 0"
+        # rospy.loginfo(msg_txt)
+        time.sleep(duration)
+
+    def ex_two_part_two(self):
+        # State one: (Green led for 5s)
+        rospy.loginfo("Waiting for led service..")
+        rospy.wait_for_service('led_control_srv')
+        rospy.loginfo("Connected to led service.")
+        led_srv = rospy.ServiceProxy('led_control_srv', GetVariable)
+        name_json = String()
+        name_json.data = str("1") 
+        led_srv(name_json)
+        time.sleep(5)
+
+        rad_90 = pi/2
+
+        name_json.data = str("3")  # red
+        led_srv(name_json)
+        self.task_rotation(-rad_90, -(pi * 2), 0.25) # 90 deg clockwise
+        self.task_straight_125cm(0.05) 
+        self.task_rotation(rad_90, pi * 1.2, 0.05)
+        self.task_straight_125cm(-0.02) 
+        self.task_rotation(rad_90, pi * 0.8, 0.25)
+        self.task_straight_125cm(-0.02) 
+
+        name_json.data = str("1") 
+        led_srv(name_json)
+        time.sleep(5)
+
+
+    def update_frames(self, delta_rt, delta_lt):
+        delta_rw_dist = (2 * pi * self.r * delta_rt) / 135
+        delta_lw_dist = (2 * pi * self.r * delta_lt) / 135
+
+        delta_dist_cover = (delta_rw_dist + delta_lw_dist)/2
+
+        self.Xr += delta_dist_cover
+
+        self.Th  += (delta_rw_dist - delta_lw_dist) / (2 * self.L)
+        self.Xw += (delta_dist_cover * cos(self.Th)) 
+        self.Yw += (delta_dist_cover * sin(self.Th))
+
+        return delta_dist_cover
+
+    def task_rotation(self, rotation_amount, omega_amount, stopping_offset):
+        rospy.loginfo("Starting rotation task..")
+        rospy.loginfo(f'Initial Theta: {self.Th}')
+        msg_velocity = Twist2DStamped()
+        rate = rospy.Rate(50)
+
+        initial_theta = self.Th
+        
+        target_theta = initial_theta + rotation_amount
+        prv_rt = self.rt
+        prv_lt = self.lt
+
+        while True:
+            if rotation_amount < 0 and self.Th - stopping_offset < target_theta:
+                break
+            if rotation_amount > 0 and self.Th + stopping_offset > target_theta:
+                break
+
+            delta_rt = self.rt - prv_rt
+            delta_lt = self.lt - prv_lt
+
+            prv_rt = self.rt
+            prv_lt = self.lt
+
+            msg_velocity.header.stamp = rospy.Time.now()
+            msg_velocity.v = 0
+            msg_velocity.omega = omega_amount
+
+            self.update_frames(delta_rt, delta_lt)
+            self.vel_pub.publish(msg_velocity)
+            rospy.loginfo(f'Self.Th: {self.Th}, target_th: {target_theta}')
+            rate.sleep()
+
+        rospy.loginfo(f'Final Theta: {self.Th}')
+        
+        for i in range(10):
+            self.stop(0.1)
+
+    def task_straight_125cm(self, bias):
+        rospy.loginfo("Starting 1.25m task..")
+
+        msg_velocity = Twist2DStamped()
+        rate = rospy.Rate(20)
+        dist_cover = 0
+
+        vel = 0.5
+        prv_rt = self.rt
+        prv_lt = self.lt
+
+        start_th = self.Th
+
+        while dist_cover <  1.1:
+            delta_rt = self.rt - prv_rt
+            delta_lt = self.lt - prv_lt
+
+            prv_rt = self.rt
+            prv_lt = self.lt
+
+            dist_cover += self.update_frames(delta_rt, delta_lt)
+            
+            msg_velocity.header.stamp = rospy.Time.now()
+            msg_velocity.v = vel
+            theta_diff = self.Th - start_th
+            msg_velocity.omega = (-theta_diff * 2.5) + bias
+            
+            self.vel_pub.publish(msg_velocity)
+            rospy.loginfo(f'Xw: {self.Xw}, Yw: {self.Yw}, Th: {self.Th}, msg_velocity.omega: {msg_velocity.omega }')
+            
+            rate.sleep()
+
+        rospy.loginfo("Distance covered: " + str(dist_cover))
+        for i in range(10):
+            self.stop(0.1)
+        
+
     def task125cm(self):
         rospy.loginfo("Starting 1.25m task..")
 
@@ -120,8 +200,8 @@ class DuckieMover(DTROS):
         dist_cover = 0
 
         vel = 0.5
-        prv_rt = 0
-        prv_lt = 0
+        prv_rt = self.rt
+        prv_lt = self.lt
 
         while dist_cover <  1.25:
             delta_rt = self.rt - prv_rt
@@ -130,22 +210,14 @@ class DuckieMover(DTROS):
             prv_rt = self.rt
             prv_lt = self.lt
 
-            delta_rw_dist = (2 * pi * self.r * delta_rt) / 135
-            delta_lw_dist = (2 * pi * self.r * delta_lt) / 135
-
-            delta_dist_cover = (delta_rw_dist + delta_lw_dist)/2
-            dist_cover += delta_dist_cover
-
-            self.Th  += (delta_rw_dist - delta_lw_dist) / (2 * self.L)
-            self.X += (delta_dist_cover * cos(self.Th)) 
-            self.Y += (delta_dist_cover * sin(self.Th))
+            dist_cover += self.update_frames(delta_rt, delta_lt)
             
             msg_velocity.header.stamp = rospy.Time.now()
             msg_velocity.v = vel
             msg_velocity.omega = -self.Th * 1.5
             
             self.vel_pub.publish(msg_velocity)
-            rospy.loginfo(f'X: {self.X}, Y: {self.Y}, Th: {self.Th}, dist: {dist_cover}, d_rt: {delta_rt}, d_lt: {delta_lt}')
+            rospy.loginfo(f'Xw: {self.Xw}, Yw: {self.Yw}, Th: {self.Th}, dist: {dist_cover}, d_rt: {delta_rt}, d_lt: {delta_lt}')
             
             rate.sleep()
 
@@ -162,15 +234,7 @@ class DuckieMover(DTROS):
             prv_rt = self.rt
             prv_lt = self.lt
 
-            delta_rw_dist = (2 * pi * self.r * delta_rt) / 135
-            delta_lw_dist = (2 * pi * self.r * delta_lt) / 135
-
-            delta_dist_cover = (delta_rw_dist + delta_lw_dist)/2
-            dist_cover += delta_dist_cover
-
-            self.Th  += (delta_rw_dist - delta_lw_dist) / (2 * self.L)
-            self.X += (delta_dist_cover * cos(self.Th)) 
-            self.Y += (delta_dist_cover * sin(self.Th))
+            dist_cover += self.update_world_frame(delta_rt, delta_lt)
             
             msg_velocity.header.stamp = rospy.Time.now()
             msg_velocity.v = -vel
@@ -185,11 +249,30 @@ class DuckieMover(DTROS):
         for i in range(10):
             self.stop(0.1)
 
-        
+    
+    def led_test(self):
+        rospy.loginfo("Waiting for led service..")
+        rospy.wait_for_service('led_control_srv')
+        rospy.loginfo("Connected to led service.")
+        try:
+            for i in range(4):
+                led = rospy.ServiceProxy('led_control_srv', GetVariable)
+                name_json = String()
+                name_json.data = str(i + 1) 
+                led(name_json)
+                time.sleep(3)
+                
+        except rospy.ServiceException as e:
+            print("Service call failed: %s"%e)
+
+
 
     def run(self):
-        self.task125cm()
-  
+        # self.task125cm()
+        # self.task_rotation()
+        # self.led_test()
+        self.ex_two_part_two()
+
 
 if __name__ == '__main__':
     # create the node

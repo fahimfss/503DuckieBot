@@ -3,6 +3,8 @@ project(exercise_two)
 
 find_package(catkin REQUIRED COMPONENTS
   rospy
+  std_msgs
+  message_generation
 )
 
 catkin_package()
