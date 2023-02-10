@@ -4,7 +4,8 @@ import os
 import time
 
 import rospy
-from std_msgs.msg import String, Int16
+import rosbag
+from std_msgs.msg import String, Float32
 
 from math import pi, cos, sin
 
@@ -28,6 +29,8 @@ class DuckieMover(DTROS):
         WheelEncoderStamped, self.right_tick,  queue_size = 1)
         self.left_tick_sub = rospy.Subscriber(f'/{name}/left_wheel_encoder_node/tick', 
         WheelEncoderStamped, self.left_tick,  queue_size = 1)
+
+        self.bag = rosbag.Bag('/code/catkin_ws/src/503DuckieBot/packages/exercise_two/run.bag', 'w')
 
         self.r = rospy.get_param(f'/{name}/kinematics_node/radius', 100)
         rospy.loginfo("Radius of wheel: " +  str(self.r))
@@ -136,6 +139,10 @@ class DuckieMover(DTROS):
         name_json.data = str("3") 
         led_srv(name_json)
 
+        self.bag.close()
+
+        rospy.loginfo("Closed the bag!")
+
 
 
 
@@ -150,6 +157,20 @@ class DuckieMover(DTROS):
         self.Th  += (delta_rw_dist - delta_lw_dist) / (2 * self.L)
         self.Xw += (delta_dist_cover * cos(self.Th)) 
         self.Yw += (delta_dist_cover * sin(self.Th))
+
+        th = Float32()
+        th.data = self.Th
+
+        Xw = Float32()
+        Xw.data = self.Xw
+
+        Yw = Float32()
+        Yw.data = self.Yw
+
+        self.bag.write('th', th)
+        self.bag.write('Xw', Xw)
+        self.bag.write('Yw', Yw)
+
 
         return delta_dist_cover
 
