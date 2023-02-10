@@ -83,24 +83,60 @@ class DuckieMover(DTROS):
         rospy.loginfo("Connected to led service.")
         led_srv = rospy.ServiceProxy('led_control_srv', GetVariable)
         name_json = String()
-        name_json.data = str("1") 
+        name_json.data = str("3")  # red
         led_srv(name_json)
         time.sleep(5)
 
         rad_90 = pi/2
 
+        name_json.data = str("1")  # green
+        led_srv(name_json)
+        self.task_rotation(-rad_90, -(pi * 3.2), 0.25)       # 90 deg clockwise, 1st turn
+        self.task_straight_125cm(0.105)                     # Go straight, bottom part 
+        self.task_rotation(rad_90, pi * 1.6, 0.28)         # 90 deg counter clockwise, bottom right turn
+        self.task_straight_125cm(0.09)              # Go straight, right part 
+        self.task_rotation(rad_90, pi * 1.2, 0.2)   # 90 deg counter clockwise, middle right turn
+        self.task_straight_125cm(0.085)              # Go straight, center-right to center-left part 
+
         name_json.data = str("3")  # red
         led_srv(name_json)
-        self.task_rotation(-rad_90, -(pi * 2), 0.25) # 90 deg clockwise
-        self.task_straight_125cm(0.05) 
-        self.task_rotation(rad_90, pi * 1.2, 0.05)
-        self.task_straight_125cm(-0.02) 
-        self.task_rotation(rad_90, pi * 0.8, 0.25)
-        self.task_straight_125cm(-0.02) 
+        time.sleep(5)
 
-        name_json.data = str("1") 
+        name_json.data = str("1")  # green          Go back home
+        led_srv(name_json)
+
+        self.task_rotation(rad_90, pi * 1.5, 0.2)  # 0 deg counter clockwise, middle left turn
+        self.task_straight_125cm(0.08)              # Go straight, center-left to bottom-left 
+        self.task_rotation(pi, pi * 3, 0.3)      # Turn 180
+
+        name_json.data = str("3")  # red
         led_srv(name_json)
         time.sleep(5)
+
+
+        name_json.data = str("4") 
+        led_srv(name_json)
+
+        # self.task_rotation(rad_90, pi * 2.2, 1.2)
+        msg_velocity = Twist2DStamped()
+        msg_velocity.header.stamp = rospy.Time.now()
+        msg_velocity.v = 0.35
+        rate = rospy.Rate(20)
+        for i in range(115):
+            if i < 50:
+                msg_velocity.omega = -pi/2.25
+            else:
+                msg_velocity.omega = -pi/1.55
+            self.vel_pub.publish(msg_velocity)
+            rate.sleep()
+        
+        for _ in range(10):
+            self.stop(0.1)
+
+        name_json.data = str("3") 
+        led_srv(name_json)
+
+
 
 
     def update_frames(self, delta_rt, delta_lt):
@@ -162,7 +198,7 @@ class DuckieMover(DTROS):
         rate = rospy.Rate(20)
         dist_cover = 0
 
-        vel = 0.5
+        vel = 0.3
         prv_rt = self.rt
         prv_lt = self.lt
 

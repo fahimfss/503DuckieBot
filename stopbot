@@ -1,4 +1,0 @@
-rostopic pub /csc22941/wheels_driver_node/wheels_cmd duckietown_msgs/WheelsCmdStamped  "{vel_left: 0, vel_right: 0}"
-
-
-dts duckiebot demo --demo_name led_emitter_node --duckiebot_name csc22933 --package_name led_emitter --image duckietown/dt-core:daffy-arm64v8
