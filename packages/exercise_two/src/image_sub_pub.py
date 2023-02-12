@@ -31,7 +31,7 @@ class ImageSubscriberPublisherNode(DTROS):
 
     def run(self):
         # publish message every 1 second
-        rate = rospy.Rate(15) # 5Hz
+        rate = rospy.Rate(15) # 15Hz
         while not rospy.is_shutdown():
             if self.img_queue:
                 message = self.img_queue.popleft() 
